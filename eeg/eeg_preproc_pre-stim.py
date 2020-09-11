@@ -125,18 +125,6 @@ for obs_i in obs_all:
 		t_num += int(ev[-1] in [10])
 		trial_num[ind] = t_num
 
-
-	# ## load log data
-	# # load trials to reject based on eyetracking data
-	# keep_trial_eeg = np.load(obs_path + 'eeg/obs_%i_trials_to_analyze_responded_and_1.5deg_eyet_thresh.npy' % obs_i)
-
-	# # take care of triggers in EEG file but not in the log files
-	# if obs_i == 4:
-	# 	keep_trial_eeg = np.hstack([keep_trial_eeg[:380],
-	# 		np.array([False, False, False]),
-	# 		keep_trial_eeg[380:]])
-
-
 	z = np.load(data_path + 'obs_%i/eyet/obs_%i_thresh%.1fdeg_data_for_eeg.npz' %\
 		(obs_i, obs_i, fix_thresh_indeg), allow_pickle=True)['arr_0'][..., np.newaxis][0]
 	eeg_trials_torej_respEyeT = z['eeg_trials_torej']
@@ -148,47 +136,9 @@ for obs_i in obs_all:
 		'stimcombi', 'resptime', 'respcorrect'], dtype=np.float)
 
 	if obs_i == 36: pd_log_clean = pd_log_clean[:-1]
-	# # load log data
-	# add_path = ''
-	# # if obs_i not in [30, 36, 39]:
-	# # 	filen = obs_path + 'behav/obs_%i_behav_data_eyet_thresh%.1fdeg_struct.npy' % (obs_i, fix_thresh_indeg)
-	# # 	if obs_i in [3, 4, 7, 11, 12, 21, 27, 28, 39]:
-	# # 		if os.path.exists(obs_path + 'behav/eeg_fix/'):
-	# # 			add_path = 'eeg_fix/'
-	# # 		filen = obs_path + 'behav/' + add_path + 'obs_%i_allbehav_data_struct.npy' % obs_i
-
-	# # 	data_all_struct = np.load(filen, encoding = 'bytes', allow_pickle=True)[..., np.newaxis][0]
-	# # 	list_keys = [k for k in data_all_struct]
-	# # 	if type(list_keys[0]) is np.bytes_:
-	# # 		data_all_struct = transform_dict_bytes_to_utf8(data_all_struct.copy(), list_keys)
-	# # 	pd_log_clean = pd.DataFrame(data_all_struct)
-	# # 	if obs_i in [3, 4, 7, 11, 12, 21, 27, 28]:
-	# # 		pd_log_clean = pd.DataFrame(data_all_struct)[keep_trial_eeg]
-	# # 	pd_log_clean.resptime = pd_log_clean.resptime.astype(np.float)
-	# # 	pd_log_clean.respcorrect = pd_log_clean.respcorrect.astype(np.int)
-	# # else:
-	# if os.path.exists(obs_path + 'behav/eeg_fix/'): add_path = 'eeg_fix/'
-	# log_data_files = glob.glob(obs_path + 'behav/' + add_path + 'task_obs%s_block*_date*.txt' % (obs_i))
-
-	# pd_log_clean = pd.DataFrame()
-	# # loop over the log files
-	# for ind, file_n in enumerate(log_data_files):
-	# 	# load the file
-	# 	temp = pd.read_csv(file_n, delimiter='\t')
-	# 	# append it to dataframe
-	# 	pd_log_clean = pd_log_clean.append(temp)
-	# pd_log_clean = pd_log_clean.loc[keep_trial_eeg]
-
 
 	if np.sum(events_all[:, -1]==10) != len(eeg_trials_torej_respEyeT):
 		print('\n\n\n\t\t!!!!!!! PROBLEM NOT SAME NUMBER OF TRIALS IN EEG DATA AND KEEP_TRIAL_EEG !!!!!!!\n\n\n\n')
-
-
-
-	# instruction_EEG = events_all[(events_all[:,-1]>19) & (events_all[:,-1]<24), -1]-20
-
-
-
 
 	trials_to_rej = np.where(eeg_trials_torej_respEyeT)[0]
 	inds_to_keep = np.ones(n_evs, dtype = np.bool)

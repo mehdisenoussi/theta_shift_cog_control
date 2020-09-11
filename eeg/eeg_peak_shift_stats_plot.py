@@ -15,11 +15,14 @@ from mne.time_frequency import tfr_morlet, psd_multitaper, psd_welch
 from fooof import FOOOF, FOOOFGroup
 import pandas as pd
 
+from mne.channels import find_ch_connectivity
+from mne.stats import permutation_cluster_test, spatio_temporal_cluster_test
+from scipy import stats
+
 
 # loads the channel file
 data_path = '/Volumes/mehdimac/ghent/mystinfo/gitcleandata/'
-montage = mne.channels.read_montage(data_path + 'chanlocs_66elecs_noCz.loc')
-
+n_elec = 64
 
 insttxts = np.array(['LL', 'LR', 'RL', 'RR'])
 inst_diff_order = np.array([3, 0, 2, 1], dtype=np.int)
@@ -31,43 +34,6 @@ obs_all = np.arange(1, 40)
 # obs 5 and 15 have less than 5 blocks, obs 9 left-handed
 # obs 16, 23 and 33 have less than 200 trials after rejection based on EyeT
 obs_all = obs_all[np.array([obs_i not in [5, 9, 15, 16, 23, 33] for obs_i in obs_all])]
-
-
-n_elec = 64
-
-
-
-
-from mne.channels import find_ch_connectivity
-from mne.stats import permutation_cluster_test, spatio_temporal_cluster_test
-from scipy import stats
-
-
-# inds_all_corr = []
-# for ind, inst in enumerate(inst_diff_order):
-# 	toplot_topo = avg_theta_amp_byInstCorr[:, inst, 1, :]
-# 	toplot_topo = (toplot_topo - toplot_topo.mean(axis=1)[:, np.newaxis])\
-# 				/toplot_topo.std(axis=1)[:, np.newaxis]
-# 	cluster_stats = mne.stats.permutation_cluster_1samp_test(X=toplot_topo,
-# 						n_permutations=10000, threshold=threshold, tail=1,
-# 						n_jobs=-1, buffer_size=None, connectivity=connectivity)
-# 	T_obs, clusters, p_values, _ = cluster_stats
-# 	good_cluster_inds = np.where(p_values < p_accept)[0]
-# 	inds_all_corr.append(np.argwhere(np.array(clusters)[good_cluster_inds].squeeze()).squeeze())
-
-# min_cluster = np.argmin([len(inds_inst) for inds_inst in inds_all_corr]).squeeze()
-# thetaAmp_common_elecs = np.array([], dtype=np.int)
-# for ind, ind_elec in enumerate(inds_all_corr[min_cluster]):
-# 	if np.all([ind_elec in inds_all_corr[inst_ind] for inst_ind in np.arange(4)]):
-# 		thetaAmp_common_elecs = np.hstack([thetaAmp_common_elecs, ind_elec])
-
-# thetaAmp_common_elecs_mask = np.zeros(len(eps.ch_names), dtype=np.bool)
-# thetaAmp_common_elecs_mask[thetaAmp_common_elecs] = True
-
-
-
-
-
 
 eps = mne.read_epochs(fname = data_path + 'obs_1/eeg/obs1_allclean_peri-stim_pres_data_filt-None-48-epo.fif.gz',
 	proj = False, verbose= 50, preload=True)

@@ -45,90 +45,8 @@ threshold_points = np.tile(np.array([[screen_size_pix[0]/2., screen_size_pix[1]/
 fields = np.array(['observer', 'block', 'trial', 'instr_type', 'ISD',
 	'stimcombi', 'response', 'resptime', 'resptime2', 'respcorrect'], dtype='<U11')
 
-
-rej_trial_byobs = {}
-behav_eyetclean = []
-save_data = True
-for obs_i in obs_all:
-	# to store all eyet data  
-	eyet_centr_all = []
-
-	# location of reconstructed eyet data from EEG triggers
-	eyet_recon_path = base_path + 'obs_%i/eyet/recon_eeg_trig/' % obs_i
-	eyetrecon_files = glob.glob(eyet_recon_path + '*.npz')
-
-	# load the eyet trigger reconstructed file
-	z = np.load(base_path + 'obs_%i/eyet/eyet_epochs_allblocks_clean.npz' % obs_i, allow_pickle=True)['arr_0'][..., np.newaxis][0]
-	# get the variable of interest
-	eyet_epochs_allblocks_clean = z['eyet_epochs_allblocks_clean']
-	block_n_all_clean = z['block_n_all_clean']
-	usable_blocks = np.unique(block_n_all_clean)
-
-	# location of behavioral log files
-	log_data_path = base_path + 'obs_%i/behav/' % obs_i
-	if obs_i in [33, 39]:
-		# for participants 33 and 39 there was a mismatch between log data
-		# and EEG/EyeT triggers for a few trials (because some blocks were
-		# stopped manually). We thus need to use the "fixed" log files
-		log_data_path += 'eeg_fix/'
-
-	for block_ind, block in enumerate(usable_blocks):
-		log_fname = glob.glob(log_data_path + 'task_obs%s_block%i_date*.txt' % (obs_i, block))[0]
-		log_data = np.loadtxt(log_fname, dtype = np.str)
-		if not block_ind: logdata_all = log_data[1:, :]
-		else: logdata_all = np.concatenate([logdata_all, log_data[1:, :]], axis = 0)
-	responded_mask = logdata_all[:, -3].astype(np.float) != -1
-	logdata_all_clean = logdata_all[responded_mask, :]
-
-	# get useful stuff from log
-	isds_all = logdata_all_clean[:, 4].astype(np.int)
-
-	n_trials = block_n_all_clean.shape[0]
-	rej_trial_eyet = np.zeros(n_trials, dtype = np.bool)
-	trial_data_gaze_inpix_all_x = np.array([])
-	trial_data_gaze_inpix_all_y = np.array([])
-	for trial_n in np.arange(n_trials):
-		trial_data = eyet_epochs_allblocks_clean[trial_n, isds_tmask[isds_all[trial_n]], 1:]
-		# keep the gaze position in raw pix values to plot it on the experimental display
-		trial_data_gaze_inpix_all_x = np.hstack([trial_data_gaze_inpix_all_x, trial_data[:, 0]])
-		trial_data_gaze_inpix_all_y = np.hstack([trial_data_gaze_inpix_all_y, trial_data[:, 1]])
-
-		# centered on gaze position before trial onset
-		trial_data_centered = np.array([trial_data[:, 0] - trial_data[0, 0], trial_data[:, 1] - trial_data[0, 1]])
-		
-		eyet_centr_all.append(trial_data_centered)
-		gaze_pos_deg = trial_data_centered * pixindeg
-		rej_trial_eyet[trial_n] = np.any(gaze_pos_deg > fix_thresh_indeg)
-
-	print('obs_%i:\t%i trials left' %\
-		(obs_i, n_trials - rej_trial_eyet.sum()))
-
-	rej_trial_byobs['obs_%i' % obs_i] = [rej_trial_eyet.sum(), n_trials, rej_trial_eyet.mean()]
-
-	logdata_allclean_noEyeMov = logdata_all_clean[np.logical_not(rej_trial_eyet), :]
-
-	log_data_path = base_path + 'obs_%i/behav/' % obs_i
-	data_all_struct = {}
-	for ind, field in enumerate(fields):
-		data_all_struct[field] = logdata_allclean_noEyeMov[:, ind]
-
-	# save clean behav data (only responded trials, only trials without
-	# gazes outside 1.5° radius of fixation)
-	np.save(base_path +\
-		'obs_%i/behav/obs_%i_behav_data_eyet_thresh%.1fdeg_struct.npy' %\
-		(obs_i, obs_i, fix_thresh_indeg), data_all_struct)
-
-	# save clean, i.e. responded, behav data and which trials need to be
-	# rejected because gaze was >1.5° from fixation
-	np.savez(base_path + 'obs_%i/eyet/obs_%i_thresh%.1fdeg_data_for_eeg.npz' %\
-		(obs_i, obs_i, fix_thresh_indeg),
-		{'rej_trial_eyet':rej_trial_eyet, 'logdata_all_clean':logdata_all_clean})
-
-
-
-
 ########################################################################
-######					MATCH EyeT DATA WITH EEG 				  ######
+######			MATCH EyeT DATA WITH EEG and Behav		  		  ######
 ########################################################################
 
 obs_all = np.arange(1, 40)
@@ -348,42 +266,6 @@ for obs_ind, obs_i in enumerate(obs_all):
 		(obs_i, obs_i, fix_thresh_indeg),
 		{'eeg_trials_torej':eeg_trials_torej, 'logdata_clean_forEEG':logdata_forEEG_allclean_noEyeMov})
 
-
-
-
-
-
-
-	#####################################
-
-
-
-##### which trials to use in EEG
-keep_trial_all = []
-keep_trial_eeg = []
-for obs_ind, obs_i in enumerate(obs_all):
-	# !!!!!!!!!!!!!!!!!!!!!!!!
-	# CHECK WHETHER THE EEG TRIALS "TO KEEP" are the correct ones because this bit of
-	# code here was using "obs_%i_data_for_classif.npz" NOT obs_%i_thresh1.5deg_data_for_classif.npz !!!!!!
-	# !!!!!!!!!!!!!!!!!!!!!!!!
-	# z = np.load(base_path + 'obs_%i/eyet/obs_%i_data_for_classif.npz' % (obs_i, obs_i))['arr_0'][..., np.newaxis][0]
-
-	z = np.load(base_path + 'obs_%i/eyet/obs_%i_thresh%.1fdeg_data_for_eeg.npz' % (obs_i, obs_i, fix_thresh_indeg),
-		allow_pickle=True)['arr_0'][..., np.newaxis][0]
-
-	print('obs %i - n_trials_remaining: %i' % (obs_i, np.logical_not(z['rej_trial_eyet']).sum()))
-
-	keep_trial_all.append(np.ones(n_trials_max[obs_ind], dtype = np.bool))
-	keep_trial_all[obs_ind][np.logical_not(responded_mask_log_all[obs_ind])] = False
-	# take the eyet trials which were responded and attribute them the
-	# "rejected eyet trial" value (basically indicating whether there
-	# was a saccade in that trial)
-	keep_trial_all[obs_ind][trial_present_all[obs_ind][:, 0] & responded_mask_log_all[obs_ind]] = np.logical_not(z['rej_trial_eyet'])
-
-	keep_trial_eeg.append(keep_trial_all[obs_ind][trial_present_all[obs_ind][:, 1]])
-
-	np.save(base_path + 'obs_%i/eeg/obs_%i_trials_to_analyze_responded_and_1.5deg_eyet_thresh.npy' %\
-		(obs_i, obs_i), keep_trial_eeg[obs_ind])
 
 
 
