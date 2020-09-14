@@ -147,8 +147,8 @@ print(res.anova_table)
 fvals = res.anova_table.values[:, 0]
 pvals = res.anova_table.values[:, -1]
 
-axs[1].set_title('Theta Peak - %s\nF=%s\np=%s)'%\
-	(data_format, np.str(fvals), np.str(pvals)), fontsize=8)
+axs[1].set_title('Theta Peak\nF=%s\np=%s)'%\
+	(np.str(fvals), np.str(pvals)), fontsize=8)
 axs[1].hlines(y=0, xmin=-.5, xmax=4.5)
 axs[1].set_xlim(-1, 4)
 
@@ -168,8 +168,8 @@ aovrm = AnovaRM(data=df, depvar='theta_peak', subject='obs', within=['hand', 'he
 res = aovrm.fit()
 fvals = res.anova_table.values[:, 0]
 pvals = res.anova_table.values[:, -1]
-axs[2].set_title('Theta Peak diff (corr-incorr) - %s\nF=%s\np=%s)'%\
-	(data_format, np.str(fvals), np.str(pvals)), fontsize=8)
+axs[2].set_title('Theta Peak diff (corr-incorr)\nF=%s\np=%s)'%\
+	(np.str(fvals), np.str(pvals)), fontsize=8)
 axs[2].grid(); axs[2].hlines(y=0, xmin=-.5, xmax=4.5)
 axs[2].set_xlim(-1, 4)
 

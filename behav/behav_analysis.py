@@ -81,7 +81,6 @@ def pad_fft_diff(data, n_t_pad, freqpad, freqmaskpad, mask_theta_ind):
 		for temp in amp_data_pad_goodfreqs[:, :, inst]]\
 		for inst in np.arange(n_instr)]),1)
 
-
 	return diff_data_amp_pad
 
 # path to data
@@ -102,7 +101,7 @@ obs_all = np.arange(1, 40)
 # obs 5 and 15 have less than 5 blocks, obs 9 left-handed
 # obs 16, 23 and 33 have less than 200 trials after rejection based on EyeT
 obs_all = obs_all[np.array([obs_i not in [5, 9, 15, 16, 23, 33] for obs_i in obs_all])]
-
+oad=[]
 n_obs = len(obs_all)
 
 n_trials_per_obs = np.zeros(len(obs_all))
@@ -237,9 +236,6 @@ peak_theta_perInst_inHz_ordDiff = freqpad[mask_theta][peak_theta_perInst[:,inst_
 
 # plot
 fig, ax = pl.subplots(1, 1)
-temp = peak_theta_perInst_inHz_ordDiff.std(axis=1)[:,np.newaxis]
-temp[np.isnan(temp)] = 1
-temp[temp==0] = 1
 toplot = (peak_theta_perInst_inHz_ordDiff - peak_theta_perInst_inHz_ordDiff.mean(axis=1)[:, np.newaxis])
 
 b = ax.errorbar(x = np.arange(4), y = toplot.mean(axis=0),

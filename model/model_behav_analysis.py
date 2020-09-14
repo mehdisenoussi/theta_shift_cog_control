@@ -53,7 +53,28 @@ def ezdiff(rt, correct, s = 1.0):
     return([a,v,t])
 
 
-def pad_fft_normDiff(data, n_t_pad, freqpad, freqmaskpad, mask_theta_ind):
+# def pad_fft_normDiff(data, n_t_pad, freqpad, freqmaskpad, mask_theta_ind):
+# 	n_obs, n_instr = data.shape[0], data.shape[2]
+# 	data_pad = np.zeros(shape=[n_obs, n_t_pad, n_instr])
+# 	for obs_ind in np.arange(n_obs):
+# 		for inst in np.arange(n_instr):
+# 			avg_obs_data = data[obs_ind, :, inst].mean()
+# 			data_pad[obs_ind, :, inst] = np.hstack([np.repeat(avg_obs_data, 4),
+# 				data[obs_ind, :, inst], np.repeat(avg_obs_data, 5)])
+
+# 	# amplitude of padded signal
+# 	amp_data_pad_goodfreqs = np.abs(np.fft.fft(data_pad, axis=1))[:, freqmaskpad, :]
+
+# 	# compute peak measure
+# 	diffn_data_amp_pad = np.rollaxis(np.array([[[(temp[i] - np.mean([temp[i-1],temp[i+1]]))/np.mean([temp[i-1],temp[i+1]])\
+# 		for i in mask_theta_ind]\
+# 		for temp in amp_data_pad_goodfreqs[:, :, inst]]\
+# 		for inst in np.arange(n_instr)]),1)
+
+# 	return diffn_data_amp_pad
+
+
+def pad_fft_diff(data, n_t_pad, freqpad, freqmaskpad, mask_theta_ind):
 	n_obs, n_instr = data.shape[0], data.shape[2]
 	data_pad = np.zeros(shape=[n_obs, n_t_pad, n_instr])
 	for obs_ind in np.arange(n_obs):
@@ -65,13 +86,12 @@ def pad_fft_normDiff(data, n_t_pad, freqpad, freqmaskpad, mask_theta_ind):
 	# amplitude of padded signal
 	amp_data_pad_goodfreqs = np.abs(np.fft.fft(data_pad, axis=1))[:, freqmaskpad, :]
 
-	# compute peak measure
-	diffn_data_amp_pad = np.rollaxis(np.array([[[(temp[i] - np.mean([temp[i-1],temp[i+1]]))/np.mean([temp[i-1],temp[i+1]])\
+	diff_data_amp_pad = np.rollaxis(np.array([[[(temp[i] - np.mean([temp[i-1],temp[i+1]]))\
 		for i in mask_theta_ind]\
 		for temp in amp_data_pad_goodfreqs[:, :, inst]]\
 		for inst in np.arange(n_instr)]),1)
 
-	return diffn_data_amp_pad
+	return diff_data_amp_pad
 
 
 def do_anova(meas, n_subjs, thetas, n_rules=2):
@@ -305,7 +325,7 @@ corr_all_isd2 = np.rollaxis(corr_all_isd.squeeze().copy()[0, ...], 1)[:,:,np.new
 # detrend
 corr_all_isd2 = sig.detrend(corr_all_isd2, axis=1)
 # pad + FFT + peak measure
-diffn_amp_pad_lowF = pad_fft_normDiff(data=corr_all_isd2, n_t_pad=n_t_pad, freqpad=freqpad,
+diffn_amp_pad_lowF = pad_fft_diff(data=corr_all_isd2, n_t_pad=n_t_pad, freqpad=freqpad,
 	freqmaskpad=freqmaskpad, mask_theta_ind=mask_theta_ind)
 
 # High theta
@@ -313,7 +333,7 @@ corr_all_isd2 = np.rollaxis(corr_all_isd.squeeze().copy()[-1, ...], 1)[:,:,np.ne
 # detrend
 corr_all_isd2 = sig.detrend(corr_all_isd2, axis=1)
 # pad + FFT + peak measure
-diffn_amp_pad_highF = pad_fft_normDiff(data=corr_all_isd2, n_t_pad=n_t_pad, freqpad=freqpad,
+diffn_amp_pad_highF = pad_fft_diff(data=corr_all_isd2, n_t_pad=n_t_pad, freqpad=freqpad,
 	freqmaskpad=freqmaskpad, mask_theta_ind=mask_theta_ind)
 
 
@@ -351,7 +371,7 @@ for theta_freq_ind in np.arange(len(thetas)):
 	# detrend
 	corr_all_isd2 = sig.detrend(corr_all_isd2, axis=1)
 	# pad + FFT + peak measure
-	diffn_amp_pad = pad_fft_normDiff(data=corr_all_isd2, n_t_pad=n_t_pad, freqpad=freqpad,
+	diffn_amp_pad = pad_fft_diff(data=corr_all_isd2, n_t_pad=n_t_pad, freqpad=freqpad,
 		freqmaskpad=freqmaskpad, mask_theta_ind=mask_theta_ind)
 	# store them all in diff_amp_pad_all array
 	diff_amp_pad_all[theta_freq_ind,:,:] = diffn_amp_pad.squeeze()
