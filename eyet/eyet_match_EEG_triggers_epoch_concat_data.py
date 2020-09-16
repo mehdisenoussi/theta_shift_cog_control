@@ -1,13 +1,5 @@
 import os, glob
 import numpy as np
-from matplotlib import pyplot as pl
-
-def plot_shadederr(subp, curve_val, error_val, color = 'blue', x = None, xlim = None, ylim = None, label = None, linestyle = '-', alpha = 1, linewidth = 1):
-	subp.plot(x, curve_val, color = color, label = label, alpha = alpha, linestyle = linestyle, linewidth = linewidth)
-	if np.any(error_val):
-		subp.fill_between(x, curve_val + error_val, curve_val - error_val, color = color, alpha = .2)
-	pl.grid(); pl.ylim(ylim); pl.xlim(xlim)
-	if label != None: pl.legend()
 
 base_path = '/Volumes/mehdimac/ghent/mystinfo/gitcleandata/'
 

@@ -2,7 +2,7 @@
 
 This is a set of Python scripts to perform the analyses for the "theta shift in cognitive control" experiment dataset. (Senoussi, Verbeke, Desender, De Loof, Talsma & Verguts - 2020 (Submitted))
 These scripts were written and tested on Python version 3.7. (full list of Python packages used to come)
-Here is a link to the preprint: [https://www.biorxiv.org/content/10.1101/2020.08.30.273706v1](https://www.biorxiv.org/content/10.1101/2020.08.30.273706v1)
+Here is a link to the preprint: [https://www.biorxiv.org/content/10.1101/2020.08.30.273706v2](https://www.biorxiv.org/content/10.1101/2020.08.30.273706v2)
 
 The dataset is available through this Open Science Framework repository: https://osf.io/nwh87/?view_only=b11ee1f860804da582c816fe8acdecad
 

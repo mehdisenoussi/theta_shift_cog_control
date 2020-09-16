@@ -1,5 +1,5 @@
 """
-@authors: Mehdi Senoussi, Pieter Verbeke
+@authors: Mehdi Senoussi, Pieter Verbeke, Tom Verguts
 """
 
 from theta_sync_model_utils import Model_sim
