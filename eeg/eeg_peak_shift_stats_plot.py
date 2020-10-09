@@ -35,10 +35,8 @@ obs_all = np.arange(1, 40)
 # obs 16, 23 and 33 have less than 200 trials after rejection based on EyeT
 obs_all = obs_all[np.array([obs_i not in [5, 9, 15, 16, 23, 33] for obs_i in obs_all])]
 
-eps = mne.read_epochs(fname = data_path + 'obs_1/eeg/obs1_allclean_peri-stim_pres_data_filt-None-48-epo.fif.gz',
+eps = mne.read_epochs(fname = data_path + 'obs_1/eeg/obs1_allclean_pre-stim_epo.fif.gz',
 	proj = False, verbose= 50, preload=True)
-
-# obs_all = obs_all[:-4]
 
 # get data and group by instruction, correct/incorrect, etc.
 n_obs = len(obs_all)
@@ -90,7 +88,6 @@ toplot2 = (toplot2 - toplot2.mean(axis=2)[:, :, np.newaxis])\
 toplot = (toplot1 - toplot2).mean(axis=1)
 
 
-ch_idx = eps.info['ch_names'].index('AFz')
 connectivity, ch_names = find_ch_connectivity(eps.info, ch_type='eeg')
 
 p_accept = .05
@@ -125,9 +122,8 @@ ch_inds = np.array([eps.info['ch_names'].index(ch_name)\
 corr_names = ['Correct', 'Incorrect']
 for corr_ind, corr_i in enumerate([0, 1]):
 	xs = np.arange(4)+(corr_i-1)/8
-	toplot = np.nanmean(zscore_theta_peak_byInstCorr[:, inst_diff_order,corr_i,:][:,:, ch_inds],
+	toplot = np.nanmean(zscore_theta_peak_byInstCorr[:, inst_diff_order, corr_i, :][:, :, ch_inds],
 		axis=-1)
-	# for obs_ind in np.arange(n_obs): ax.plot(xs, toplot[obs_ind, :], 'o-', color=[.6, .6, .6, .6])
 	axs[1].errorbar(x=xs, y=np.nanmean(toplot, axis=0), yerr = np.nanstd(toplot, axis=0)/n_obs**.5,
 		fmt=['o', '^'][corr_ind], ms=10, color=['g', 'r'][corr_i], label=corr_names[corr_i])
 axs[1].set_xticks(np.arange(4)); axs[1].set_xticklabels(insttxts[inst_diff_order])
@@ -189,18 +185,17 @@ corr_all_inst = np.load(data_path + 'corr_byInst_all_forEEG.npy')
 
 overall_acc_per_inst = corr_all_inst.mean(axis=0)[inst_diff_order]*100
 
-lin_rel_peak_inst = np.zeros(shape = [n_obs, 2, 2])
+lin_rel_peak_inst = np.zeros(shape = [n_obs, 2])
 for obs_ind in np.arange(n_obs):
-	for corr_ind in np.arange(2):
-		theta_peaks = zscore_theta_peak_byInstCorr[:, inst_diff_order, corr_ind, :][obs_ind, :, ch_inds]
-		theta_peaks = np.nanmean(theta_peaks, axis=0)
-		lin_rel_peak_inst[obs_ind, corr_ind, :] = np.polyfit(overall_acc_per_inst, theta_peaks, 1)
+	theta_peaks = zscore_theta_peak_byInstCorr[:, inst_diff_order, 0, :][obs_ind, :, ch_inds]
+	theta_peaks = np.nanmean(theta_peaks, axis=0)
+	lin_rel_peak_inst[obs_ind, :] = np.polyfit(overall_acc_per_inst, theta_peaks, 1)
 
 # inter-individual differences in accuracy linked to theta peak shift?
 corr_all = np.load(data_path + 'corr_all_forEEG.npy')
 
 xs = np.array([-.6, .6])
-x = lin_rel_peak_inst[:, 0, 0]
+x = lin_rel_peak_inst[:, 0]
 y = corr_all*100
 correl_eeg_peak_acc = np.polyfit(x, y, 1)
 pl.figure()

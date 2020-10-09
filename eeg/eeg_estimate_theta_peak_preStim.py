@@ -37,11 +37,9 @@ eps_all = []
 psds_welch_mean_all = np.zeros(shape = [len(obs_all), 40, 64])
 for obs_ind, obs_i in enumerate(obs_all):
 	print('obs %i'%obs_i)
-	eps = mne.read_epochs(fname = data_path + 'obs_%i/eeg/obs%i_allclean_peri-stim_pres_data_filt-None-48-epo.fif.gz' % (obs_i, obs_i), proj = False, verbose= 50, preload=True)
+	eps = mne.read_epochs(fname = data_path + 'obs_%i/eeg/obs%i_allclean_pre-stim_epo.fif.gz' % (obs_i, obs_i), proj = False, verbose= 50, preload=True)
 	eps_all.append(eps)
 
-
-obs_all = obs_all[:10]
 
 for obs_ind, obs_i in enumerate(obs_all):
 	# create observer's fit results' list

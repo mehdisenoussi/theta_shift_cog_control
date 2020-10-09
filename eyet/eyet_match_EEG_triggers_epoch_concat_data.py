@@ -328,6 +328,11 @@ for obs_i in obs_all:
 			block_n_all = np.concatenate([block_n_all, block_info], axis = 0)
 			responded_mask_all = np.concatenate([responded_mask_all, responded_mask], axis = 0)
 
+	# save all trials
+	np.savez(base_path + 'obs_%i/eyet/eyet_epochs_allblocks.npz' % obs_i,
+		{'eyet_epochs_allblocks':eyet_epochs_allblocks,
+		'block_n_all':block_n_all})	
+
 	# save only trials in which observer responded (as "..clean.npz") to have a ready-to-use dataset
 	print('\t\tn_resp_trials: %i/%i (%.2f)' % (sum(responded_mask_all),
 		len(responded_mask_all), np.mean(responded_mask_all)))
