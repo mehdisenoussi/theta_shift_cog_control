@@ -56,7 +56,6 @@ obs_all = np.arange(1, 40)
 # obs_all = obs_all[np.array([obs_i not in [5, 9, 15, 16, 23, 33] for obs_i in obs_all])]
 obs_all = obs_all[np.array([obs_i not in [5, 9, 15] for obs_i in obs_all])]
 
-obs_all=np.array([36])
 n_trials_max = np.zeros(len(obs_all), dtype = np.int)
 trial_present_all = []
 responded_mask_log_all = []
