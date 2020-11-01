@@ -15,8 +15,10 @@ from statsmodels.formula.api import ols
 from mne import parallel as par
 from scipy import signal as sig
 from statsmodels.stats.anova import AnovaRM
+import statsmodels.stats.api as sms
 import matplotlib as mpl
 from matplotlib import cm
+import pingouin as pg
 
 # simple EZ-diffusion model based on Wagenmakers et al, 2007
 def ezdiff(rt, correct, s = 1.0):
@@ -53,45 +55,17 @@ def ezdiff(rt, correct, s = 1.0):
     return([a,v,t])
 
 
-# def pad_fft_normDiff(data, n_t_pad, freqpad, freqmaskpad, mask_theta_ind):
-# 	n_obs, n_instr = data.shape[0], data.shape[2]
-# 	data_pad = np.zeros(shape=[n_obs, n_t_pad, n_instr])
-# 	for obs_ind in np.arange(n_obs):
-# 		for inst in np.arange(n_instr):
-# 			avg_obs_data = data[obs_ind, :, inst].mean()
-# 			data_pad[obs_ind, :, inst] = np.hstack([np.repeat(avg_obs_data, 4),
-# 				data[obs_ind, :, inst], np.repeat(avg_obs_data, 5)])
 
-# 	# amplitude of padded signal
-# 	amp_data_pad_goodfreqs = np.abs(np.fft.fft(data_pad, axis=1))[:, freqmaskpad, :]
-
-# 	# compute peak measure
-# 	diffn_data_amp_pad = np.rollaxis(np.array([[[(temp[i] - np.mean([temp[i-1],temp[i+1]]))/np.mean([temp[i-1],temp[i+1]])\
-# 		for i in mask_theta_ind]\
-# 		for temp in amp_data_pad_goodfreqs[:, :, inst]]\
-# 		for inst in np.arange(n_instr)]),1)
-
-# 	return diffn_data_amp_pad
-
-
-def pad_fft_diff(data, n_t_pad, freqpad, freqmaskpad, mask_theta_ind):
+def pad_fft(data, n_t_pad, freqmaskpad, mask_theta_ind):
 	n_obs, n_instr = data.shape[0], data.shape[2]
 	data_pad = np.zeros(shape=[n_obs, n_t_pad, n_instr])
 	for obs_ind in np.arange(n_obs):
 		for inst in np.arange(n_instr):
 			avg_obs_data = data[obs_ind, :, inst].mean()
-			data_pad[obs_ind, :, inst] = np.hstack([np.repeat(avg_obs_data, 4),
+			data_pad[obs_ind, :, inst] = np.hstack([np.repeat(avg_obs_data, 5),
 				data[obs_ind, :, inst], np.repeat(avg_obs_data, 5)])
 
-	# amplitude of padded signal
-	amp_data_pad_goodfreqs = np.abs(np.fft.fft(data_pad, axis=1))[:, freqmaskpad, :]
-
-	diff_data_amp_pad = np.rollaxis(np.array([[[(temp[i] - np.mean([temp[i-1],temp[i+1]]))\
-		for i in mask_theta_ind]\
-		for temp in amp_data_pad_goodfreqs[:, :, inst]]\
-		for inst in np.arange(n_instr)]),1)
-
-	return diff_data_amp_pad
+	return np.abs(np.fft.fft(data_pad, axis=1))[:, freqmaskpad, :][:, mask_theta_ind, 0]
 
 
 def do_anova(meas, n_subjs, thetas, n_rules=2):
@@ -105,11 +79,11 @@ def do_anova(meas, n_subjs, thetas, n_rules=2):
 				df2_arr[index, :] = [subj_i, rule_i, theta_ind, meas[theta_i, rule_i, subj_i]]
 				index += 1
 	df2 = pd.DataFrame(df2_arr, columns=['obs', 'ruleFact', 'thetaFact', 'perf'])
-	aovrm = AnovaRM(data=df2, depvar='perf', subject='obs', within=['ruleFact', 'thetaFact'], aggregate_func=np.mean)
-	res = aovrm.fit()
-	fs = res.anova_table['F Value'].values
-	pvals = res.anova_table['Pr > F'].values
-	return fs, pvals
+	aov = pg.rm_anova(data=df2, dv='perf', subject='obs', within=['ruleFact', 'thetaFact'], detailed=True, effsize='n2')
+	fs = aov['F'].values
+	pvals = aov['p-unc']
+	etas = aov['n2'] 
+	return fs, pvals, etas
 
 
 isd_val = np.arange(1.7, 2.21, .05)
@@ -124,10 +98,10 @@ ddm_var_names = ['bound', 'drift', 'non-dec-time']
 
 # paths
 simu_path = './model/simulations/'
-data_path = simu_path + 'LFC_compet_sw2_0.50_kick_0.50_thresh_0.10_cgSd_1.00_sigmaCompet_0.075_inhCompet_0.10_alphCompet_0.130_tilt_0.0200_dampThetaCoef_0.0050_1/'
+data_path = simu_path + 'LFC_compet_sw2_0.50_kick_0.50_thresh_0.10_cgSd_1.00_sigmaCompet_0.075_inhCompet_0.10_alphCompet_0.130_tilt_0.0200_dampThetaCoef_0.0050/'
 
 # number of repetitions of each condition
-n_reps = 50
+n_reps = 100
 
 # difference between center gamma frequencies
 drift = 0
@@ -278,9 +252,9 @@ for ind, meas in enumerate([a_inst, v_inst, t_inst, rts_med_all_inst, corr_all_i
 			yerr=meas[:, inst, :].std(axis=-1) ,#/ np.sqrt(n_reps_bundled),
 			fmt='o-', color=cols[inst_ind], mec='black', zorder=1, mew=2, ms = 5)
 
-	fs, pvals = do_anova(meas, n_reps_bundled, thetas, n_rules=2)
-	ax.set_title('%s\nF=[%.1f, %.1f, %.1f]\npval=[%.3f, %.3f, %.3f]' %\
-		(var_names[ind], fs[0], fs[1], fs[2], pvals[0],pvals[1],pvals[2]),
+	fs, pvals, etas = do_anova(meas, n_reps_bundled, thetas, n_rules=2)
+	ax.set_title('%s\nF=[%.2f, %.2f, %.2f]\npval=[%.5f, %.5f, %.5f]\netas=[%.3f, %.3f, %.3f]' %\
+		(var_names[ind], fs[0], fs[1], fs[2], pvals[0],pvals[1],pvals[2],etas[0],etas[1],etas[2]),
 		fontsize=8)
 
 axes[1, 2].remove()
@@ -301,8 +275,9 @@ fig, ax = pl.subplots(1,1)
 violins = ax.violinplot(optim_theta_freq.T, showmedians=True, vert=False)
 ax.set_yticks([1,2])
 ax.set_yticklabels(['Easy', 'Difficult'])
-t,p = stats.ttest_rel(optim_theta_freq[0,:], optim_theta_freq[1,:])
-ax.set_title('ACCURACY\nT-test: t=%.1f, p=%.8f' % (t, p))
+t, p = stats.ttest_rel(optim_theta_freq[0,:], optim_theta_freq[1,:])
+ci = sms.DescrStatsW(optim_theta_freq[0,:]-optim_theta_freq[1,:]).tconfint_mean()
+ax.set_title('ACCURACY\nT-test: t=%.1f, p=%.8f (95%% CI: [%.2f, %.2f])' % (t, p, ci[0], ci[1]))
 
 
 
@@ -312,7 +287,7 @@ ax.set_title('ACCURACY\nT-test: t=%.1f, p=%.8f' % (t, p))
 step = .05
 # we add 4 time points before and 5 after the Accuracy-by-ISD to
 # obtain a 1 second signal
-n_t_pad = n_t + 4 + 5
+n_t_pad = n_t + 5 + 5
 freqpad = np.fft.fftfreq(n_t_pad, step)
 freqmaskpad = freqpad > 0
 freqpad = freqpad[freqmaskpad]
@@ -324,16 +299,16 @@ mask_theta_ind = np.argwhere(mask_theta).squeeze()
 corr_all_isd2 = np.rollaxis(corr_all_isd.squeeze().copy()[0, ...], 1)[:,:,np.newaxis]
 # detrend
 corr_all_isd2 = sig.detrend(corr_all_isd2, axis=1)
-# pad + FFT + peak measure
-diffn_amp_pad_lowF = pad_fft_diff(data=corr_all_isd2, n_t_pad=n_t_pad, freqpad=freqpad,
+# pad + FFT
+amp_pad_lowF = pad_fft(data=corr_all_isd2, n_t_pad=n_t_pad,
 	freqmaskpad=freqmaskpad, mask_theta_ind=mask_theta_ind)
 
 # High theta
 corr_all_isd2 = np.rollaxis(corr_all_isd.squeeze().copy()[-1, ...], 1)[:,:,np.newaxis]
 # detrend
 corr_all_isd2 = sig.detrend(corr_all_isd2, axis=1)
-# pad + FFT + peak measure
-diffn_amp_pad_highF = pad_fft_diff(data=corr_all_isd2, n_t_pad=n_t_pad, freqpad=freqpad,
+# pad + FFT
+amp_pad_highF = pad_fft(data=corr_all_isd2, n_t_pad=n_t_pad,
 	freqmaskpad=freqmaskpad, mask_theta_ind=mask_theta_ind)
 
 
@@ -351,10 +326,10 @@ axs[0,1].errorbar(x = isd_val, y=theta_high_acc.mean(axis=-1), yerr = theta_high
 axs[0,0].set_ylim(50, 100); axs[0,1].set_ylim(50, 100)
 axs[0,0].set_yticks(np.arange(50, 91, 10)); axs[0,1].set_yticks(np.arange(50, 91, 10))
 
-axs[1,0].hist(np.argmax(diffn_amp_pad_lowF, axis=2).flatten()+4,
+axs[1,0].hist(np.argmax(amp_pad_lowF, axis=1).flatten()+4,
 	bins=np.arange(5)+3.5,density=True, width=.8)
 
-axs[1,1].hist(np.argmax(diffn_amp_pad_highF, axis=2).flatten()+4,
+axs[1,1].hist(np.argmax(amp_pad_highF, axis=1).flatten()+4,
 	bins=np.arange(5)+3.5,density=True, width=.8)
 
 
@@ -363,28 +338,28 @@ axs[1,1].hist(np.argmax(diffn_amp_pad_highF, axis=2).flatten()+4,
 ########## Across all MFC theta #############
 #############################################
 
-n_estim_theta_freq = 4
-diff_amp_pad_all = np.zeros(shape = [len(thetas), n_reps_bundled, n_estim_theta_freq])
+n_estim_theta_freq = 3
+amp_pad_all = np.zeros(shape = [len(thetas), n_reps_bundled, n_estim_theta_freq])
 for theta_freq_ind in np.arange(len(thetas)):
 	print('MFC theta: %i' % thetas[theta_freq_ind])
 	corr_all_isd2 = np.rollaxis(corr_all_isd.squeeze().copy()[theta_freq_ind, ...], 1)[:,:,np.newaxis]
 	# detrend
 	corr_all_isd2 = sig.detrend(corr_all_isd2, axis=1)
-	# pad + FFT + peak measure
-	diffn_amp_pad = pad_fft_diff(data=corr_all_isd2, n_t_pad=n_t_pad, freqpad=freqpad,
+	# pad + FFT
+	amp_pad = pad_fft(data=corr_all_isd2, n_t_pad=n_t_pad,
 		freqmaskpad=freqmaskpad, mask_theta_ind=mask_theta_ind)
-	# store them all in diff_amp_pad_all array
-	diff_amp_pad_all[theta_freq_ind,:,:] = diffn_amp_pad.squeeze()
+
+	amp_pad_all[theta_freq_ind,:,:] = amp_pad.squeeze()
 
 
 gold_col = np.array([254, 226, 52, 50])/255
 obs_all = np.arange(n_reps_bundled)
 fig, ax = pl.subplots(1, 1)
 ax.plot([3.5, 7.5], [3.5, 7.5], 'k--')
-ax.violinplot(freqpad[mask_theta][np.argmax(diff_amp_pad_all, axis=-1).squeeze()].T,
+ax.violinplot(freqpad[mask_theta][np.argmax(amp_pad_all, axis=-1).squeeze()].T,
 	positions=thetas, showmedians=True, showextrema=False, widths=.4)
 for theta_ind, mfc_theta in enumerate(thetas):
-	data = diff_amp_pad_all[theta_ind, :, :]
+	data = amp_pad_all[theta_ind, :, :]
 	data_peak = np.argmax(data, axis=-1)
 	toplot = freqpad[mask_theta][data_peak]
 	x = mfc_theta
@@ -395,7 +370,7 @@ ax.set_xlim(3.5,7.5); ax.set_ylim(3.5,7.5)
 ax.set_xticks(thetas); ax.set_yticks(thetas)
 
 
-data = diff_amp_pad_all
+data = amp_pad_all
 data_peak = freqpad[mask_theta][np.argmax(data, axis=-1)]
 corr_x, corr_y = np.repeat(thetas, n_reps_bundled), data_peak.flatten()
 rho, pval = stats.spearmanr(corr_x, corr_y)

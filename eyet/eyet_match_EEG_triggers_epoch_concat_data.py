@@ -1,7 +1,7 @@
 import os, glob
 import numpy as np
 
-base_path = '/Volumes/mehdimac/ghent/mystinfo/gitcleandata/'
+base_path = './data/'
 
 mrk2trig_codes = dict({b'S  1':1, b'S 10':5, b'S 20':10, b'S 21':10,
 	b'S 22':10, b'S 23':10, b'S 30':15, b'S 31':15, b'S 32':15,
@@ -296,8 +296,7 @@ for obs_i in obs_all:
 
 		##############################################################################################################
 		# Load log file to check trial correspondency
-		# if obs_i in [23, 28, 33, 39]:
-		if obs_i in [11, 21, 23, 28, 33, 39]:
+		if obs_i in [11, 21, 23, 28, 33, 36, 39]:
 			if os.path.exists(log_data_path + 'eeg_fix/'):
 				log_data_path += 'eeg_fix/'
 		log_fname = glob.glob(log_data_path + '*block%i*.txt' % block)

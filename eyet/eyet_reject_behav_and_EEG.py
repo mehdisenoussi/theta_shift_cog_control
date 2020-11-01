@@ -2,14 +2,15 @@ import os, glob
 import numpy as np
 from matplotlib import pyplot as pl
 
-def plot_shadederr(subp, curve_val, error_val, color = 'blue', x = None, xlim = None, ylim = None, label = None, linestyle = '-', alpha = 1, linewidth = 1):
+def plot_shadederr(subp, curve_val, error_val, color = 'blue', x = None, xlim = None,
+	ylim = None, label = None, linestyle = '-', alpha = 1, linewidth = 1):
 	subp.plot(x, curve_val, color = color, label = label, alpha = alpha, linestyle = linestyle, linewidth = linewidth)
 	if np.any(error_val):
 		subp.fill_between(x, curve_val + error_val, curve_val - error_val, color = color, alpha = .2)
 	pl.grid(); pl.ylim(ylim); pl.xlim(xlim)
 	if label != None: pl.legend()
 
-base_path = '/Volumes/mehdimac/ghent/mystinfo/gitcleandata/'
+base_path = './data/'
 
 ########################################################################################################################
 obs_all = np.arange(1, 40)
@@ -52,21 +53,13 @@ fields = np.array(['observer', 'block', 'trial', 'instr_type', 'ISD',
 obs_all = np.arange(1, 40)
 ## excluded participants
 # obs 5 and 15 have less than 5 blocks, obs 9 left-handed
-# obs 16, 23 and 33 have less than 200 trials after rejection based on EyeT
-# obs_all = obs_all[np.array([obs_i not in [5, 9, 15, 16, 23, 33] for obs_i in obs_all])]
 obs_all = obs_all[np.array([obs_i not in [5, 9, 15] for obs_i in obs_all])]
 
 n_trials_max = np.zeros(len(obs_all), dtype = np.int)
 trial_present_all = []
 responded_mask_log_all = []
 responded_mask_logeyet = []
-good_obs = []
 trials_all_info_all = [] 
-
-rej_trial_byobs = {}
-behav_eyetclean = []
-save_data = True
-
 
 for obs_ind, obs_i in enumerate(obs_all):
 	print('obs_%i' % obs_i)
@@ -102,7 +95,7 @@ for obs_ind, obs_i in enumerate(obs_all):
 		# for participant 39 block 1 and 7 were stopped manually, creating a mismatch
 		# between log and EEG/EyeT triggers (last trial not written in log but triggers
 		# sent to EEG and EyeT). We fixed that in 'eeg_fix/' log files.
-		if obs_i in [33, 39]:
+		if obs_i in [23, 33, 39]:
 			logeyet_fname = glob.glob(log_data_path + 'eeg_fix/task_obs%s_block%i_date*.txt' % (obs_i, block))[0]
 		else: logeyet_fname = glob.glob(log_data_path + 'task_obs%s_block%i_date*.txt' % (obs_i, block))[0]
 		logeyet_data = np.loadtxt(logeyet_fname, dtype = np.str)
@@ -223,12 +216,13 @@ for obs_ind, obs_i in enumerate(obs_all):
 
 	# clean log data
 	if obs_i not in [33]:
-		log_trials_torej = responded_mask_log_all[obs_ind].copy()
+		log_trials_torej = ~responded_mask_log_all[obs_ind].copy()
+		# mask of responded trials that are in eyetracking data
 		maskk = responded_mask_log_all[obs_ind] & trials_all_info_all[obs_ind][:, 0].astype(np.bool)
 		log_trials_torej[maskk] = rej_trial_eyet
 		logdata_allclean_noEyeMov = log_all_data[np.logical_not(log_trials_torej), :]
 	else:
-		log_trials_torej = responded_mask_logeyet[obs_ind].copy()
+		log_trials_torej = ~responded_mask_logeyet[obs_ind].copy()
 		maskk = responded_mask_logeyet[obs_ind]
 		log_trials_torej[maskk] = rej_trial_eyet
 		logdata_allclean_noEyeMov = logeyet_all_data[np.logical_not(log_trials_torej), :]
@@ -252,16 +246,16 @@ for obs_ind, obs_i in enumerate(obs_all):
 		eeg_trials_torej = log_trials_torej
 		logdata_forEEG_allclean_noEyeMov = logeyet_all_data[np.logical_not(eeg_trials_torej), :]
 
-	######	
+	######
 	# save clean behav data (only responded trials, only trials without
 	# gazes outside 1.5° radius of fixation)
 	np.save(base_path +\
-		'obs_%i/behav/obs_%i_behav_data_eyet_thresh%.1fdeg_struct.npy' %\
+		'obs_%i/behav/obs_%i_behav_data_eyet_thresh%.1fdeg_struct_2.npy' %\
 		(obs_i, obs_i, fix_thresh_indeg), data_all_struct)
 
 	# save clean, i.e. responded, behav data and which trials need to be
 	# rejected because gaze was >1.5° from fixation
-	np.savez(base_path + 'obs_%i/eyet/obs_%i_thresh%.1fdeg_data_for_eeg.npz' %\
+	np.savez(base_path + 'obs_%i/eyet/obs_%i_thresh%.1fdeg_data_for_eeg_2.npz' %\
 		(obs_i, obs_i, fix_thresh_indeg),
 		{'eeg_trials_torej':eeg_trials_torej, 'logdata_clean_forEEG':logdata_forEEG_allclean_noEyeMov})
 

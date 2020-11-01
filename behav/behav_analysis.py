@@ -3,12 +3,9 @@ from matplotlib import pyplot as pl
 import pandas as pd
 import glob, os
 from scipy import stats
-
-from mne import parallel as par
-from mne.stats import fdr_correction
 from scipy import signal as sig
-from statsmodels.stats.anova import AnovaRM
-import pandas as pd
+import pingouin as pg 
+
 
 # simple EZ-diffusion model based on Wagenmakers et al, 2007
 def ezdiff(rt, correct, s = 1.0):
@@ -46,45 +43,21 @@ def ezdiff(rt, correct, s = 1.0):
 	
 	return([a,v,t])
 
-def do_anova(meas, n_subjs, thetas, n_rules=2):
-	n_subjs = n_reps_bundled
-	n_thetas = len(thetas)
-	df2_arr = np.zeros(shape = [n_subjs*n_thetas*n_rules, 4])
-	index = 0
-	for subj_i in np.arange(n_subjs):
-		for theta_ind, theta_i in enumerate(np.arange(n_thetas)):#enumerate([0, -1]):
-			for rule_i in np.arange(n_rules):
-				df2_arr[index, :] = [subj_i, rule_i, theta_ind, meas[theta_i, rule_i, subj_i]]
-				index += 1
-	df2 = pd.DataFrame(df2_arr, columns=['obs', 'ruleFact', 'thetaFact', 'perf'])
-	aovrm = AnovaRM(data=df2, depvar='perf', subject='obs', within=['ruleFact', 'thetaFact'], aggregate_func=np.mean)
-	res = aovrm.fit()
-	fs = res.anova_table['F Value'].values
-	pvals = res.anova_table['Pr > F'].values
-	return fs, pvals
 
-
-def pad_fft_diff(data, n_t_pad, freqpad, freqmaskpad, mask_theta_ind):
+def pad_fft(data, n_t_pad, freqmaskpad):
 	n_obs, n_instr = data.shape[0], data.shape[2]
 	data_pad = np.zeros(shape=[n_obs, n_t_pad, n_instr])
 	for obs_ind in np.arange(n_obs):
 		for inst in np.arange(n_instr):
 			avg_obs_data = data[obs_ind, :, inst].mean()
-			data_pad[obs_ind, :, inst] = np.hstack([np.repeat(avg_obs_data, 4),
+			data_pad[obs_ind, :, inst] = np.hstack([np.repeat(avg_obs_data, 5),
 				data[obs_ind, :, inst], np.repeat(avg_obs_data, 5)])
 
-	# amplitude of padded signal
-	amp_data_pad_goodfreqs = np.abs(np.fft.fft(data_pad, axis=1))[:, freqmaskpad, :]
-
-	diff_data_amp_pad = np.rollaxis(np.array([[[(temp[i] - np.mean([temp[i-1],temp[i+1]]))\
-		for i in mask_theta_ind]\
-		for temp in amp_data_pad_goodfreqs[:, :, inst]]\
-		for inst in np.arange(n_instr)]),1)
-
-	return diff_data_amp_pad
+	# return amplitude of padded signal
+	return np.abs(np.fft.fft(data_pad, axis=1))[:, freqmaskpad, :]
 
 # path to data
-data_path = '/Volumes/mehdimac/ghent/mystinfo/gitcleandata/'
+data_path = './data/'
 
 insttxts = np.array(['LL', 'RL', 'LR', 'RR'])
 
@@ -97,10 +70,9 @@ step = 0.05
 inst_diff_order = np.array([3, 0, 2, 1], dtype=np.int)
 
 obs_all = np.arange(1, 40)
-## excluded participants
-# obs 5 and 15 have less than 5 blocks, obs 9 left-handed
-# obs 16, 23 and 33 have less than 200 trials after rejection based on EyeT
-obs_all = obs_all[np.array([obs_i not in [5, 9, 15, 16, 23, 33] for obs_i in obs_all])]
+## participants 5, 15, 9, 16 and 33 were excluded (see Methods)
+obs_all = obs_all[np.array([obs_i not in [5, 9, 15, 16, 33] for obs_i in obs_all])]
+
 oad=[]
 n_obs = len(obs_all)
 
@@ -112,18 +84,17 @@ for oind, obs_i in enumerate(obs_all):
 	# Stim Combi:
 		# represents how the gratings were tilted (cw = clockwise, ccw = counter-clockwise):
 			# 0 = cw (left stim) - cw (right stim)  /  1 = ccw - cw  /  2 = cw - ccw  /  3 = ccw - ccw
-	filen = obs_log_path + 'obs_%i_behav_data_eyet_thresh%.1fdeg_struct.npy' % (obs_i, fix_thresh_indeg)
+	filen = obs_log_path + 'obs_%i_behav_data_eyet_thresh%.1fdeg_struct_2.npy' % (obs_i, fix_thresh_indeg)
 	data_all_struct = np.load(filen, encoding = 'ASCII', allow_pickle=True)[..., np.newaxis][0]
-	
+
 	# create a dictionary to store the data for that observer
 	oad.append({})
+	oad[oind]['rts'] = data_all_struct['resptime'].astype(np.float)
 	oad[oind]['resps'] = data_all_struct['response'].astype(np.str)
-	# oad[oind]['blocks'] = data_all_struct['block'].astype(np.int)
 	oad[oind]['instructs'] = data_all_struct['instr_type'].astype(np.int)
 	oad[oind]['ISDs'] = data_all_struct['ISD'].astype(np.int)
 	oad[oind]['stim_combis'] = data_all_struct['stimcombi'].astype(np.int)
 	oad[oind]['corr_resp'] = data_all_struct['respcorrect'].astype(np.int)
-	oad[oind]['rts'] = data_all_struct['resptime'].astype(np.float)
 
 	n_trials_per_obs[oind] = len(oad[oind]['rts'])
 
@@ -153,7 +124,7 @@ for obs_i in np.arange(n_obs):
 	for inst in np.arange(4):
 		inst_mask = oad[obs_i]['instructs']==inst
 		a_inst[obs_i, inst], v_inst[obs_i, inst], t_inst[obs_i, inst] =\
-			ezdiff(oad[obs_i]['rts'][inst_mask], oad[obs_i]['corr_resp'][inst_mask], s = 1.0)
+			ezdiff(oad[obs_i]['rts'][inst_mask], oad[obs_i]['corr_resp'][inst_mask], s = 1)
 		corr_all_inst[obs_i, inst] = oad[obs_i]['corr_resp'][inst_mask].mean()
 		rts_med_all_inst[obs_i, inst] = np.median(oad[obs_i]['rts'][inst_mask])
 		n_trials_inst[obs_i, inst]= inst_mask.sum()
@@ -161,48 +132,55 @@ for obs_i in np.arange(n_obs):
 np.save(data_path + 'corr_byInst_all_forEEG.npy', corr_all_inst)
 
 # per ISD per instruction
-n_trials_ISD_inst = np.zeros([n_obs, 11, 4])
-corr_all_isd_inst = np.zeros([n_obs, 11, 4])
-rts_med_all_isd_inst = np.zeros([n_obs, 11, 4])
+n_trials_ISD_inst = np.zeros([n_obs, n_t, 4])
+corr_all_isd_inst = np.zeros([n_obs, n_t, 4])
+rts_med_all_isd_inst = np.zeros([n_obs, n_t, 4])
 for obs_i in np.arange(n_obs):
 	for inst in np.arange(4):
-		for isd in np.arange(11):
+		for isd in np.arange(n_t):
 			mask = (oad[obs_i]['instructs']==inst) & (oad[obs_i]['ISDs']==isd)
 			corr_all_isd_inst[obs_i, isd, inst] = oad[obs_i]['corr_resp'][mask].mean()
 			rts_med_all_isd_inst[obs_i, isd, inst] = np.median(oad[obs_i]['rts'][mask])
 			n_trials_ISD_inst[obs_i, isd, inst] = mask.sum()
 
 
-titles = ['Bound', 'Drift Rate', 'Non-dec time', 'RT', 'Accuracy']
-fig, axs = pl.subplots(2,3)
+
+# prepare stuff for the ANOVA
+subjs = np.repeat(obs_all, 4)
+hand = np.tile(np.array([1, 2, 1, 2]), n_obs)
+hemi = np.tile(np.array([1, 2, 2, 1]), n_obs)
+
+titles = ['Bound', 'Drift Rate', 'Non-dec. time', 'RT', 'Accuracy']
+col = np.array([25, 196, 64])/255
+fig, axs = pl.subplots(2, 3)
 for data_ind, data in enumerate([a_inst, v_inst, t_inst, rts_med_all_inst, corr_all_inst]):
 	ax = axs.flatten()[data_ind]
 	toplot = data[:, inst_diff_order]
 
 	ax.errorbar(x = np.arange(4), y=toplot.mean(axis=0),
 		yerr=toplot.std(axis=0)/(toplot.shape[0]**.5), color='k', fmt = 'o',
-	linestyle='', mfc = 'w', ms=8, mec='k', elinewidth=3, mew=2,
-	capthick=0, ecolor ='k', linewidth=3, zorder=2)
+	linestyle='', mfc = col, ms=8, mec='k', elinewidth=2.5, mew=2.5,
+	capthick=0, ecolor = 'k', linewidth=2.5, zorder=2)
 
-	
 	# 2way RM-ANOVA
-	# prepare stuff for the ANOVA
-	subjs = np.repeat(obs_all, 4)
-	hand = np.tile(np.array([1, 2, 1, 2]), n_obs)
-	hemi = np.tile(np.array([1, 2, 2, 1]), n_obs)
-	df = pd.DataFrame({'obs':subjs, 'hand':hand, 'hemi':hemi,
-				'perf':toplot.flatten()})
+	df = pd.DataFrame({'obs':subjs, 'hand':hand, 'hemi':hemi, 'perf':toplot.flatten()})
 	# run anova
-	aovrm = AnovaRM(data=df, depvar='perf', subject='obs', within=['hand', 'hemi'], aggregate_func=np.mean)
-	res = aovrm.fit()
-	fs = res.anova_table['F Value'].values
-	pvals = res.anova_table['Pr > F'].values
+	aov = pg.rm_anova(data=df, dv='perf', subject='obs', within=['hand', 'hemi'],
+		detailed=True, effsize='n2')
+	fs = aov['F'].values
+	pvals = aov['p-unc']
+	etas = aov['n2']
+
 	# put F and p values as subplots titles
-	ax.set_title('%s\nF=[%.1f, %.1f, %.1f]\npval=[%.3f, %.3f, %.3f]' %\
-		(titles[data_ind], fs[0], fs[1], fs[2], pvals[0],pvals[1],pvals[2]),
+	ax.set_title('%s\nF=[%.2f, %.2f, %.2f]\npval=[%.4f, %.4f, %.4f]\neta2=[%.4f, %.4f, %.4f]' %\
+		(titles[data_ind], fs[0], fs[1], fs[2], pvals[0],pvals[1],pvals[2],  etas[0],etas[1],etas[2]),
 		fontsize=8)
 	ax.set_xticks(np.arange(4)); ax.set_xticklabels(insttxts[inst_diff_order])
-	# ax.grid()
+	ax.grid(color = [.7, .7, .7], linewidth=.5)
+	ax.set_xlim(-.5, 3.5)
+	print('%s:\n\tF=[%.6f, %.6f, %.6f]\n\tp=[%.6f, %.6f, %.6f]\n\teta2=[%.4f, %.4f, %.4f]\n\n' %\
+		(titles[data_ind], fs[0], fs[1], fs[2], pvals[0],pvals[1],pvals[2],etas[0],etas[1],etas[2]))
+fig.set_size_inches([8.5, 6])
 pl.tight_layout()
 
 
@@ -210,14 +188,14 @@ pl.tight_layout()
 ################################################################################################################
 #												ACCURACY-BY-ISD PER RULE
 ################################################################################################################
+
 # detrend data
 corr_all_isd_inst2 = sig.detrend(corr_all_isd_inst, axis=1)
 
-
 step = .05
-# we add 4 time points before and 5 after the Accuracy-by-ISD to
+# we add 5 time points before and 5 after the Accuracy-by-ISD to
 # obtain a 1 second signal
-n_t_pad = n_t + 4 + 5
+n_t_pad = n_t + 5 + 5
 freqpad = np.fft.fftfreq(n_t_pad, step)
 freqmaskpad = freqpad > 0
 freqpad = freqpad[freqmaskpad]
@@ -225,25 +203,33 @@ n_freqpad = freqmaskpad.sum()
 mask_theta = (freqpad>=4) & (freqpad<=7)
 mask_theta_ind = np.argwhere(mask_theta).squeeze()
 
-# pad + FFT + peak measure
-diff_amp_pad = pad_fft_diff(data=corr_all_isd_inst2,
-	n_t_pad=n_t_pad, freqpad=freqpad, freqmaskpad=freqmaskpad,
-	mask_theta_ind=mask_theta_ind)
+# pad + FFT
+amp_padded = pad_fft(data=corr_all_isd_inst2, n_t_pad=n_t_pad, freqmaskpad=freqmaskpad)
 
-peak_theta_perInst = np.argmax(diff_amp_pad, axis=2)
+# get peak
+peak_theta_perInst = np.argmax(amp_padded[:, mask_theta, :], axis=1)
 
+# make peak in hertz and order it by instruction difficulty
 peak_theta_perInst_inHz_ordDiff = freqpad[mask_theta][peak_theta_perInst[:,inst_diff_order]]
 
 # plot
 fig, ax = pl.subplots(1, 1)
 toplot = (peak_theta_perInst_inHz_ordDiff - peak_theta_perInst_inHz_ordDiff.mean(axis=1)[:, np.newaxis])
+stdd = peak_theta_perInst_inHz_ordDiff.std(axis=1)[:, np.newaxis]
+stdd[(stdd==0)] = 1
+toplot = toplot / stdd
 
-b = ax.errorbar(x = np.arange(4), y = toplot.mean(axis=0),
-	yerr = toplot.std(axis=0)/np.sqrt(n_obs), color = 'k', fmt = '',
-	marker='o', ms=8, mec='k', mfc='w', mew=3, linestyle='',
-	linewidth = 3)
 
-ax.set_xticks(np.arange(4)); ax.set_xticklabels(insttxts[inst_diff_order])
+ax.errorbar(x = np.arange(4), y = toplot.mean(axis=0),
+	yerr = toplot.std(axis=0)/np.sqrt(n_obs), mfc=col, color = 'k', fmt = '',
+	marker='o', lw = 2.5, ms=10, mec='k', mew=2.5, linestyle='')
+
+ax.set_xticks(np.arange(4))
+ax.set_xticklabels(insttxts[inst_diff_order])
+ax.grid(color = [.7, .7, .7], linewidth=.5)
+ax.hlines(y=0, xmin=-.5, xmax=4.5)
+ax.set_xlim(-.5, 3.5)
+
 
 ## stats
 # prepare data for the ANOVA
@@ -252,15 +238,14 @@ hand = np.tile(np.array([1, 2, 1, 2]), n_obs)
 hemi = np.tile(np.array([1, 2, 2, 1]), n_obs)
 df = pd.DataFrame({'obs':subjs, 'hand':hand, 'hemi':hemi,
 			'theta_peak':toplot.flatten()})
-# run ANOVA
-aovrm = AnovaRM(data=df, depvar='theta_peak', subject='obs',
-				within=['hand', 'hemi'], aggregate_func=np.mean)
-res = aovrm.fit()
-print(res.anova_table)
 
-ax.set_title('2*2 rm-ANOVA (target-loc, hand)\nF(1, 32)=%s\np=%s' %\
-	(np.str(res.anova_table['F Value'].values),
-		np.str(res.anova_table['Pr > F'].values)), fontsize=10)
-fig.set_size_inches([6, 7])
+aov = pg.rm_anova(data=df, dv='theta_peak', subject='obs', within=['hand', 'hemi'],
+	detailed=True, effsize='n2')
+title='2*2 RM-ANOVA (target-loc, hand)\nF(1, 33)=%s\np=%s' %\
+	(np.str(aov['F'].values), np.str(aov['p-unc'].values))
+ax.set_title(title, fontsize=8)
+print(title)
+fig.set_size_inches([4, 4])
+
 
 
