@@ -6,6 +6,8 @@ import mne
 import numpy as np
 from matplotlib import pyplot as pl
 from scipy import stats
+# from statsmodels.stats.anova import AnovaRM
+
 import pandas as pd
 
 from mne.channels import find_ch_connectivity
@@ -27,13 +29,14 @@ obs_all = obs_all[np.array([obs_i not in [5, 9, 15, 16, 33] for obs_i in obs_all
 n_obs = len(obs_all)
 
 # load one example Epochs object to have topo etc.
-eps = mne.read_epochs(fname = data_path + 'obs_1/eeg/obs1_allclean_pre-stim-epo.fif.gz',
+eps = mne.read_epochs(fname = data_path + 'obs_1/eeg/obs1_EEGclean_pre-stim-epo.fif.gz',
 	proj = False, verbose= 50, preload=True)
 n_elec = len(eps.ch_names)
 
 avg_theta_peak_byInstCorr = np.zeros(shape = [n_obs, 4, 2, n_elec])
 avg_theta_amp_byInstCorr = np.zeros(shape = [n_obs, 4, 2, n_elec])
 
+# theta_par_all = []; acc_all = [];inst_all = []
 for obs_ind, obs_i in enumerate(obs_all):
 	print('loading obs %i' % obs_i)
 	obs_eegpath = data_path + 'obs_%i/eeg/' % obs_i
@@ -79,9 +82,10 @@ amp_diff = np.nanmean(amp_corr - amp_incorr, axis=1)
 connectivity, ch_names = find_ch_connectivity(eps.info, ch_type='eeg')
 ch_names = np.array(ch_names)
 
-# compute cluster
 p_accept = .05
 threshold = stats.distributions.t.ppf(1 - .05, n_obs - 1)
+
+# compute clusters
 T_obs, clusters, p_values, _ =\
 	mne.stats.permutation_cluster_1samp_test(X=amp_diff, n_permutations=1000,
 		threshold=threshold, tail=1, n_jobs=-1, buffer_size=None,

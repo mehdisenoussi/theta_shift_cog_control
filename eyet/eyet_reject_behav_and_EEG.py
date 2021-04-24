@@ -250,12 +250,12 @@ for obs_ind, obs_i in enumerate(obs_all):
 	# save clean behav data (only responded trials, only trials without
 	# gazes outside 1.5° radius of fixation)
 	np.save(base_path +\
-		'obs_%i/behav/obs_%i_behav_data_eyet_thresh%.1fdeg_struct_2.npy' %\
+		'obs_%i/behav/obs_%i_behav_data_eyet_thresh%.1fdeg_struct.npy' %\
 		(obs_i, obs_i, fix_thresh_indeg), data_all_struct)
 
 	# save clean, i.e. responded, behav data and which trials need to be
 	# rejected because gaze was >1.5° from fixation
-	np.savez(base_path + 'obs_%i/eyet/obs_%i_thresh%.1fdeg_data_for_eeg_2.npz' %\
+	np.savez(base_path + 'obs_%i/eyet/obs_%i_thresh%.1fdeg_data_for_eeg.npz' %\
 		(obs_i, obs_i, fix_thresh_indeg),
 		{'eeg_trials_torej':eeg_trials_torej, 'logdata_clean_forEEG':logdata_forEEG_allclean_noEyeMov})
 

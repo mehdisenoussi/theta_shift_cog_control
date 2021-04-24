@@ -164,7 +164,7 @@ for obs_i in obs_all:
 		tmin = -1, tmax = 0, proj = False, baseline = None, reject = {}, decim=2,
 		detrend = 1, metadata = pd_log_clean, verbose = 50)
 
-	dropped_eeg_trial_file = obs_path + 'eeg/obs_%i_eeg_trialRej_manual_2.npy' % obs_i
+	dropped_eeg_trial_file = obs_path + 'eeg/obs_%i_eeg_trialRej_manual.npy' % obs_i
 	if os.path.exists(dropped_eeg_trial_file):
 		dropped_eeg_trials = np.load(dropped_eeg_trial_file)
 		epochs = epochs.drop(dropped_eeg_trials)
