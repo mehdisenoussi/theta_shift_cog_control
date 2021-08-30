@@ -125,7 +125,7 @@ def Model_sim(Threshold=4, drift=0, Cgs_var_sd = .5, theta_freq = 5,
 	kick_value = None, sw2 = None, nReps = 10, sigma_compet = None,
 	inh_compet = .1, alpha_compet = .1, tiltrate = .1, n_trials = None,
 	save_eeg = True, save_behav = True, return_eeg = False, return_behav = False,
-	print_prog = False):
+	print_prog = False, gamma_freq = 30, theta_amplitude = 1):
 	"""
 	Model simulation that writes away two files
 		@Param Threshold, the response threshold
@@ -200,7 +200,7 @@ def Model_sim(Threshold=4, drift=0, Cgs_var_sd = .5, theta_freq = 5,
 	#######################
 	#    Control Module   #
 	######################
-	r2_MFC = 1                                      #radius MFC
+	r2_MFC = theta_amplitude                        #radius MFC
 	Ct = (theta_freq / srate) * 2 * np.pi           #coupling theta waves
 	damp_MFC = damp_thetaFreq_coef*theta_freq       #damping parameter MFC (was at .003 but it yielded extremely high theta amplitude for high theta frequencies (e.g. 8hz))
 	acc_slope = 10                                  # MFC slope parameter, is set to -5 in equation (7) of Verguts (2017)
@@ -292,12 +292,12 @@ def Model_sim(Threshold=4, drift=0, Cgs_var_sd = .5, theta_freq = 5,
 		# creating processing units' frequency noise
 		# Coupling parameter for gamma oscillations in sensory and action nodes
 		freq1 = ndimage.gaussian_filter(np.random.normal(size=TotT, loc=1, scale=Cgs_var_sd),
-			sigma=200)*30
+			sigma=200)*gamma_freq
 		Cg_1 = (freq1/srate) * 2 * np.pi
 
 		# Coupling gamma waves with frequency difference of "drift" Hz, for the action nodes
 		freq2 = ndimage.gaussian_filter(np.random.normal(size=TotT, loc=1, scale=Cgs_var_sd),
-			sigma=200)*(30+drift)
+			sigma=200)*(gamma_freq+drift)
 		Cg_2 = (freq2/srate) * 2 * np.pi
 
 
@@ -480,9 +480,9 @@ def Model_sim(Threshold=4, drift=0, Cgs_var_sd = .5, theta_freq = 5,
 	Design=np.column_stack((Trials, Design[:n_trials], resp[:n_trials], accuracy[:n_trials], RT[:n_trials],
 		Instruct_lock[:n_trials], Stim_lock[:n_trials], Response_lock[:n_trials]))
 	Column_list='trial,instr,stim,isd,reps,response,accuracy,rt,instr_onset,stim_onset,resp_onset'
-	filename_behavioral='Behavioral_Data_simulation_thetaFreq%.2fHz_thresh%.1f_drift%.1f' % (theta_freq, Threshold, drift)
+	filename_behavioral='Behavioral_Data_simulation_thetaFreq%.2fHz_thresh%.1f_drift%.1f_thetaAmp%.2f' % (theta_freq, Threshold, drift, theta_amplitude)
 	if save_behav:
-		np.savetxt(sim_path + filename_behavioral+'.csv', Design, header=Column_list, delimiter=',',fmt='%.2f')
+		np.savetxt(sim_path + filename_behavioral+'_1.csv', Design, header=Column_list, delimiter=',',fmt='%.2f')
 	
 	if save_eeg:
 		Phase_ds = sig.resample(Phase, int(TotT/2.), axis = 2)
